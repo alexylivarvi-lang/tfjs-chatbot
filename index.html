@@ -2,7 +2,8 @@
 <html lang="fi">
 <head>
   <meta charset="UTF-8">
-  <title>TensorFlow.js Chatbot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TensorFlow.js Chatbot (N-gram)</title>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
   <style>
     :root {
@@ -24,8 +25,8 @@
 
     * { box-sizing: border-box; }
     body {
-      font-family: "Segoe UI", sans-serif;
-      max-width: 560px;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      max-width: 580px;
       margin: 30px auto;
       padding: 0 14px;
       background: linear-gradient(180deg, #f8fafc 0%, var(--bg) 100%);
@@ -54,8 +55,37 @@
       font-size: 0.92rem;
     }
 
+    .suggestions-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .chip {
+      background: #eff6ff;
+      color: var(--primary);
+      border: 1px solid #bfdbfe;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .chip:hover {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
     #chat-box {
-      height: 340px;
+      height: 320px;
       border: 1px solid var(--border);
       background: #f9fbff;
       overflow-y: auto;
@@ -71,12 +101,8 @@
       gap: 8px;
       margin: 10px 0;
     }
-    .message-row.user {
-      justify-content: flex-end;
-    }
-    .message-row.bot {
-      justify-content: flex-start;
-    }
+    .message-row.user { justify-content: flex-end; }
+    .message-row.bot { justify-content: flex-start; }
 
     .avatar {
       width: 28px;
@@ -153,7 +179,7 @@
       outline: 2px solid rgba(37, 99, 235, 0.18);
       border-color: var(--primary);
     }
-    button {
+    button.send-btn {
       padding: 12px 18px;
       background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
       color: white;
@@ -164,8 +190,8 @@
       font-weight: 600;
       transition: transform 0.15s ease, opacity 0.2s ease;
     }
-    button:hover:not(:disabled) { transform: translateY(-1px); }
-    button:disabled {
+    button.send-btn:hover:not(:disabled) { transform: translateY(-1px); }
+    button.send-btn:disabled {
       background: #cbd5e1;
       cursor: not-allowed;
       transform: none;
@@ -174,13 +200,27 @@
 </head>
 <body>
 
-  <h2>TensorFlow.js Chatbot</h2>
-  <div id="status">Alustetaan ja opetetaan mallia...</div>
-  <div id="chat-box"></div>
-  
-  <div class="input-area">
-    <input type="text" id="userInput" placeholder="Kirjoita viesti..." />
-    <button id="sendBtn">Lähetä</button>
+  <div class="app">
+    <h2>TensorFlow.js Chatbot</h2>
+    <div id="status">Alustetaan ja opetetaan mallia...</div>
+    
+    <div class="suggestions-label">Kokeile aiheita:</div>
+    <div class="suggestions" id="suggestions">
+      <button class="chip" onclick="sendQuickText('Mitä osaat')">💡 Mitä osaat</button>
+      <button class="chip" onclick="sendQuickText('Mitä kuuluu')">👋 Mitä kuuluu</button>
+      <button class="chip" onclick="sendQuickText('Mitä on koneoppiminen')">🤖 Koneoppiminen</button>
+      <button class="chip" onclick="sendQuickText('Miten kasveja hoidetaan')">🌿 Kasvien hoito</button>
+      <button class="chip" onclick="sendQuickText('Kerro fysiikasta')">⚛️ Fysiikka</button>
+      <button class="chip" onclick="sendQuickText('Mitä pelejä suosittelet')">🎮 Pelit</button>
+      <button class="chip" onclick="sendQuickText('Miten virheitä korjataan')">🛠️ Koodausapu</button>
+    </div>
+
+    <div id="chat-box"></div>
+    
+    <div class="input-area">
+      <input type="text" id="userInput" placeholder="Odotetaan mallin alustusta..." disabled />
+      <button id="sendBtn" class="send-btn" disabled>Lähetä</button>
+    </div>
   </div>
 
   <script>
@@ -204,6 +244,19 @@
         ]
       },
       {
+        tag: "osaaminen",
+        patterns: [
+          "mitä osaat", "mitä osaat tehdä", "mitä teet", "mitkä ovat ominaisuutesi", 
+          "mitä voin kysyä", "mitä kaikkea osaat", "minkälaisia asioita osaat",
+          "esittele itsesi", "kerro itsestäsi", "kuka olet"
+        ],
+        responses: [
+          "Osaan vastata kysymyksiin koneoppimisesta, kasvien hoidosta, fysiikasta, peleistä ja koodauksesta!",
+          "Olen TensorFlow.js-pohjainen chatbot. Voit kysyä minulta esimerkiksi koodauksesta, kasvien hoidosta tai fysiikasta.",
+          "Voin keskustella eri aiheista, kuten koneoppimisesta, pelikehityksestä tai kasvien hoidosta."
+        ]
+      },
+      {
         tag: "näkemiin",
         patterns: ["hei hei", "heippa", "näkemisiin", "moro taas", "moi moi", "näkemiin"],
         responses: ["Näkemiin!", "Mukavaa päivänjatkoa!", "Moi moi! Palaillaan taas!"]
@@ -212,374 +265,110 @@
         tag: "apua",
         patterns: ["apua", "auta", "ohjeita", "miten tämä toimii", "mikä sinä olet"],
         responses: [
-          "Voit kysyä minulta esimerkiksi tervehdyksestä, kehotuksista tai yleisistä asioista.",
-          "Minä olen yksinkertainen keskustelubotti, joka vastaa ennalta opetettuihin aiheisiin.",
-          "Kokeile vaikka sanoja kuten 'hei', 'kiitos' tai 'mitä kuuluu'."
-        ]
-      },
-      {
-        tag: "kiitos",
-        patterns: ["kiitos", "kiitoksia", "kiitti", "tänks"],
-        responses: ["Ei kestä!", "Ole hyvä!", "Mieluusti auttaa."]
-      },
-      {
-        tag: "nimi",
-        patterns: ["kuka olet", "mikä sinun nimesi on", "mikä sinä olet", "mitä olet"],
-        responses: [
-          "Olen TensorFlow.js-chatbotti. Olen täällä auttamassa sinua.",
-          "Minä olen chatbot, joka keskustelee selaimessasi ja yrittää ymmärtää viestisi.",
-          "Kutsuta minua chatbotiksi. Mitä haluat tietää?"
-        ]
-      },
-      {
-        tag: "aika",
-        patterns: ["mikä aika on", "paljonko kello on", "mikä päivä on", "milloin"],
-        responses: [
-          "En näe oikeaa kelloa selaimesta, mutta voin auttaa muissa asioissa.",
-          "En tiedä tarkkaa kellonaikaa, mutta voin auttaa sinua jollain muulla kysymyksellä.",
-          "Kelloa en voi tarkistaa täällä, mutta tämä on hyvä hetki keskusteluun."
-        ]
-      },
-      {
-        tag: "harrastus",
-        patterns: ["mikä on lempiharrastuksesi", "mitä teet", "mikä on suosikkisi", "mikä kiinnostaa"],
-        responses: [
-          "Rakastan keskustelua ja siihen liittyvien aiheiden selvittämistä. Mitä sinä tykkäät tehdä?",
-          "Pidän eniten siitä, kun voin auttaa ihmistä ymmärtämään asioita selvästi.",
-          "Harrastukseni on auttaa ja keskustella. Mikä sinun lempiharrastuksesi on?"
+          "Voit kysyä minulta esimerkiksi koodauksesta, fysiikasta, kasveista tai peleistä!",
+          "Minä olen TensorFlow.js-pohjainen chatbot, joka oppii tunnistamaan aiheita syötteestäsi.",
+          "Napsauta yläpuolella olevia ehdotusnappeja tai kirjoita oma kysymyksesi."
         ]
       },
       {
         tag: "tekniikka",
-        patterns: ["mitä on tensorflow", "mitä on javascript", "mitä on koneoppiminen", "mitä on ai", "mikä on python"],
+        patterns: [
+          "mitä on tensorflow", "mitä on javascript", "mitä on koneoppiminen", 
+          "mitä on ai", "mikä on python", "koneoppiminen", "kerro koneoppimisesta"
+        ],
         responses: [
-          "TensorFlow on Googlen koneoppimiskirjasto, joka auttaa tekoälymallien rakentamisessa.",
-          "JavaScript on selaimen ja verkkosivujen ohjelmointikieli, ja sitä käytetään myös monissa web-ympäristöissä.",
-          "Koneoppiminen tarkoittaa malleja, jotka oppivat kuvioita datasta ilman erillistä, manuaalista ohjelmointia."
+          "TensorFlow on Googlen kehittämä kirjasto koneoppimismallien rakentamiseen.",
+          "JavaScript on verkkosivujen ja selain sovellusten tärkein ohjelmointikieli.",
+          "Koneoppiminen tarkoittaa mallia, joka oppii löytämään säännönmukaisuuksia datasta."
         ]
       },
       {
-        tag: "opiskelu",
-        patterns: ["opiskelen", "miten opin koodaamaan", "mikä on ohjelmointi", "mistä aloitan", "miten aloitan"],
+        tag: "kasvit",
+        patterns: [
+          "kasvit", "kasvien hoito", "miten kasveja hoidetaan", "kastelu", 
+          "lannoitus", "botaniikka", "kasvi", "hoito", "huonekasvit"
+        ],
         responses: [
-          "Aloita pienistä harjoituksista ja rakasta kokeilemisen kautta. Pieni askel kerrallaan tekee hyvää.",
-          "Ohjelmointi on ongelmanratkaisua: jaat asian osiin ja kokeilet ratkaisuja pienin askelin.",
-          "Jos haluat, voin kertoa sinulle kevyen aloituspolun HTML, CSS ja JavaScriptin parissa."
+          "Tärkeintä kasvien hoidossa on oikea valon määrä ja säännöllinen kastelu. Varo kastelemasta liikaa!",
+          "Tarkista aina mullan kosteus sormella ennen kastelua. Monet kasvit pitävät myös sumuttelusta.",
+          "Kasvit tarvitsevat valoa yhteyttämiseen, vettä ravinteiden kuljetukseen ja sopivasti lannoitetta kasvukaudella."
         ]
       },
       {
-        tag: "saa",
-        patterns: ["millainen sää on", "onko sade", "onko aurinkoista", "sää", "sääennuste"],
+        tag: "fysiikka_matematiikka",
+        patterns: [
+          "fysiikka", "matematiikka", "suhteellisuusteoria", "kvanttimekaniikka", 
+          "laskeminen", "yhtälö", "kerro fysiikasta"
+        ],
         responses: [
-          "En näe ulkona olevan säätä, mutta voin silti keskustella sääteemasta.",
-          "Jos haluat, voimme puhua esimerkiksi sateesta, auringosta tai keväästä.",
-          "Sää on vaihtelevaa, mutta keskustelut aina lämpimiä. Mitä säähän liittyvää haluat tietää?"
+          "Fysiikka auttaa ymmärtämään maailmankaikkeuden toimintaa aina kvanttitasolta suuriin tähtijärjestelmiin!",
+          "Matematiikka on fysiikan ja ohjelmoinnin kieli. Pienetkin yhtälöt voivat kuvata monimutkaisia ilmiöitä.",
+          "Tiesitkö, että koneoppiminen nojaa vahvasti matriisilaskentaan ja derivaattoihin?"
         ]
       },
       {
-        tag: "viihde",
-        patterns: ["mikä leffa on hyvä", "mikä peli on hyvä", "mitä katsot", "mikä musiikki", "viihde"],
+        tag: "pelit",
+        patterns: [
+          "pelit", "pelaaminen", "roblox", "mitä pelejä", "peli suositus", 
+          "pelaatko", "mitä pelejä suosittelet"
+        ],
         responses: [
-          "Jos haluat jotain rentouttavaa, katselupäivä tai hyvä musiikkinäkymä on aina hyvä idea.",
-          "Hyvää viihdettä löytyy monesta muodosta: elokuvat, pelit tai musiikki. Mitä sinä tykkäät?"
-        ]
-      },
-      {
-        tag: "pieni_puhe",
-        patterns: ["joo", "mielenkiintoista", "ok", "hmm", "niin", "no niin", "ai niin", "aha"],
-        responses: [
-          "Joo, siitä on hyvä jatkaa eteenpäin.",
-          "Aivan, mielenkiintoista. Mitä haluat tietää lisää?",
-          "Selvä. Voimme jatkaa siitä samaan aiheeseen tai vaihtaa puheen aihetta."
-        ]
-      },
-      {
-        tag: "jatka",
-        patterns: ["kerro lisää", "jatka", "selitä lisää", "lisää tietoa", "miten se toimii"],
-        responses: [
-          "Tärkeintä on, että asiaa käsitellään pienin askelin. Kokeile ensin yhtä ajatusta kerrallaan.",
-          "Yksi hyvä tapa on aloittaa selkeällä kysymyksellä ja sitten laajentaa aihetta vähän kerrallaan.",
-          "Voit ajatella sitä näin: ensin ymmärrys, sitten käytäntö, ja lopuksi kannattaa testata idea käytännössä."
+          "Pelaaminen on loistavaa viihdettä! Luovat alustat kuten Roblox tarjoavat myös hyvän tavan oppia pelikehitystä.",
+          "Pelit yhdistävät grafiikkaa, fysiikkamoottoreita ja koodia – ne ovat loistava paikka oppia ohjelmointia!",
+          "Mikä on sinun lempipelisi juuri nyt?"
         ]
       },
       {
         tag: "virhe_apu",
-        patterns: ["virhe", "bugit", "ongelma", "ei toimi", "broken", "error", "miten korjaan"],
+        patterns: [
+          "virhe", "bugit", "ongelma", "ei toimi", "broken", 
+          "error", "miten korjaan", "miten virheitä korjataan"
+        ],
         responses: [
-          "Virheet ovat normaalia! Lue virheilmoitus tarkasti – se kertoo usein juuri, mikä on pielessä. Kokeile etsiä kyseinen virhekoodi.",
-          "Yleensä kannattaa: 1) lukea virheilmoitus, 2) tarkistaa logiikka, 3) testata pienillä esimerkeillä, 4) hakea vastaava ratkaisu netistä.",
-          "Vaikein osa debuggaamisessa on usein paikantaa asia. Jaa ongelma pieniin osiin ja testaa jokainen erikseen."
-        ]
-      },
-      {
-        tag: "koodin_selitys",
-        patterns: ["mikä on funktio", "mikä on muuttuja", "mikä on loop", "mikä on if", "selitä koodi", "mikä on array"],
-        responses: [
-          "Funktio on kuin pieni ohjelma: sille annetaan tuloa (argumentit), se tekee jotain, ja palauttaa tuloksen.",
-          "Muuttuja on rasia, jossa säilytät tietoa – voit muuttaa mitä siinä on milloin vaan.",
-          "Loop (silmukka) toistaa koodia useita kertoja. If-lause päättää, mitä tehdään joko kun ehto on tosi tai epätosi.",
-          "Array on lista asioista. Se voi sisältää numeroita, tekstiä tai mitä vain, ja pääset käsiksi niihin indeksillä."
-        ]
-      },
-      {
-        tag: "motivaatio",
-        patterns: ["en jaksaa", "tämä on vaikeaa", "en osaa", "en kykene", "motivaatio", "väsyttää", "masennus"],
-        responses: [
-          "Jokainen aloittaja kokee tämän! Vaikeat asiat tuntuvat helpommilta kun opit niiden perusteet pienin askelin.",
-          "Muista: edes parhaat ohjelmoijat jumiutuvat joihin asioihin. Kyse on siitä, että ne osaavat hakea ratkaisuja ja yrittää uudelleen.",
-          "Kokeile ottaa pieni tauko, juoda vettä, liikkua hieman. Sitten palaa asiaan tuoreella päällä. Usein ratkaisu tulee lepohetken jälkeen!"
-        ]
-      },
-      {
-        tag: "aika_hallinta",
-        patterns: ["miten en viivyttele", "miten hallitsen aikaa", "miten aloitan", "liian paljon tehtävää", "missä aloitan", "ylivoimainen"],
-        responses: [
-          "Jaa isot tehtävät pieniin osiin. Kun käsillä on pieni tehtävä, motivaatio tulee ja asia sujuu helpommin.",
-          "Tekniikka: aseta 25 minuutin työsessio, sitten 5 minuutin tauko. Usein kolmen neljän kierroksen jälkeen olet hyvin edistynyt.",
-          "Tärkeää on aloittaa. Ensimmäinen askel on usein vaikein, mutta kun olet alkanut, liike tulee itsestään."
-        ]
-      },
-      {
-        tag: "ideat",
-        patterns: ["ideaa", "ideoi", "projekti", "mitä tehdä", "mitä harjoitella", "ideaa projektiin"],
-        responses: [
-          "Hyvä idea: aloita pienellä. Esimerkiksi laskin, TODO-lista, yksinkertainen peli, tai henkilökohtainen blog.",
-          "Parasta oppiminen tulee kun teet jotain omaa. Valitse aihe, josta olet kiinnostunut, ja aloita siitä!",
-          "Etsi 'beginner project ideas' netistä – tulee satoja hyviä ideoita erilaisiin teknologioihin."
-        ]
-      },
-      {
-        tag: "resurssit",
-        patterns: ["mistä opin", "materiaali", "kurssi", "linkki", "sivusto", "suositus", "oppaat"],
-        responses: [
-          "Hyviä lähteitä: YouTube, Codecademy, freeCodeCamp, Udemy (ilmaiset kurssit), ja GitHub-repositoriot.",
-          "Dokumentaatio on ystäväsi! MDN Web Docs, Python.org ja React docs sisältävät kaikki mitä tarvitset.",
-          "Stackoverflow on loistava paikka löytää ratkaisuja. Kun googlaat virheasi, usein vastaus on jo siellä."
-        ]
-      },
-      {
-        tag: "testi",
-        patterns: ["miten testaan", "miten tarkistan", "toimiko", "testaus", "debugging", "kokeile", "varmista"],
-        responses: [
-          "Testaaminen: kirjoita koodille pieniä testejä. Kokeile sekä 'normaalia' että 'väärää' syötettä.",
-          "Aloita yksinkertaisella: Tulostuslauseet (console.log, print) näyttävät mitä koodi tekee. Myöhemmin voit opetella 'unit tests' -testejä.",
-          "Hyvä strategi: aloita pienillä osilla, testaa ne erikseen, sitten testaa isompia kokonaisuuksia yhdessä."
-        ]
-      },
-      {
-        tag: "versiointi",
-        patterns: ["git", "github", "versio", "backup", "versionointi", "koodi tallennetaan"],
-        responses: [
-          "Git on väline koodin säilyttämiseen ja muutosten seurantaan. GitHub on paikka, jossa koodia voidaan jakaa.",
-          "Perusteet: git init -> muokkaa koodia -> git add -> git commit -> git push. Näin säilytyät historian ja voit palata takaisin jos tarvitsee.",
-          "Versionointi auttaa sinua, jos et muista mitä teit viikko sitten tai jos haluat näyttää koodia muille."
-        ]
-      },
-      {
-        tag: "yhteistyö",
-        patterns: ["porukka", "tiimi", "yhteistyö", "pull request", "code review", "muiden kanssa"],
-        responses: [
-          "Yhteistyö on tärkeää. Aloita kloonamalla repo, luomalla haara, tekemällä muutoksia, ja tekemällä pull request.",
-          "Code review auttaa: kun muu henkilö lukee koodisi, hän näkee asioita joita et nähnyt. Opitte toisiltanne!",
-          "Pääviestiä: ole kohtelias, kuuntele palautetta, ja muista että jokainen on kerran aloittelija."
-        ]
-      },
-      {
-        tag: "data_science",
-        patterns: ["data", "koneoppiminen", "neural", "malli", "algoritmi", "datasetti", "python data"],
-        responses: [
-          "Data science on loistava ala! Aloita perusteista: python, pandas, numpy. Sitten oppaat MatplotlibIA, scikit-learn ja TensorFlow.",
-          "Klassinen polku: data saatavuus -> puhdistaminen -> etsintä -> mallintaminen -> validointi. Pienin askel kerrallaan!",
-          "Vinkkejä: kaggle.com on loistava paikka löytää datasettejä ja kilpailuja. Aloita yksinkertaisesta projektista ja rakenna perusosaaminen."
-        ]
-      },
-      {
-        tag: "koneoppiminen",
-        patterns: ["ml", "ai", "tekoäly", "supervised", "unsupervised", "deep learning", "neural network"],
-        responses: [
-          "Koneoppimisen kaksi päätyyppiä: supervised (opetettu esimerkeillä) ja unsupervised (kuvioiden löytäminen). Molemmat hyödyllisiä!",
-          "Deep learning on jännittävä: neural networkit joissa on monta kerrosta. Aloita pienellä verkoilla, sitten siirrä isompiin.",
-          "Hyvä resurssi: Andrew Ng:n Coursera-kurssi on klassikko. Myös fast.ai on loistava käytännön lähestymistavalla."
-        ]
-      },
-      {
-        tag: "terveys",
-        patterns: ["terveys", "liikunta", "uni", "stressi", "levätä", "väsymys", "kuntoilu"],
-        responses: [
-          "Terveys on tärkein! Perusteet: 7-9h unta, säännöllinen liikunta, terveellinen ruoka. Nämä kolme tekevät ihmeitä jaksamisen kanssa.",
-          "Stressiin auttaa: liikunta, meditaatio, tai vain ulkoilu. 20 minuuttia päivittäin tekee iso ero mielialalle ja energialle.",
-          "Muista ottaa taukoja työn/opiskelun väleissä! Jokaisen tunnin jälkeen 5-10 minuutin paus. Keho ja aivot kiittelevät."
-        ]
-      },
-      {
-        tag: "uni",
-        patterns: ["uni", "nukkuminen", "yö", "väsyttää", "nukuin huonosti", "insomnia"],
-        responses: [
-          "Hyvä uni on supervoima! Kotiutumiset: säännöllinen nukkumaanmenoaika, pimeä huone, älypuhelimet pois. Yritä 2 viikkoa - tunnistat eron.",
-          "Illalla vältä kahvia 6 tunnin jälkeen ja näyttöä 1h ennen nukkumaanmenoa. Melatoniin tulee luonnollisesti hämärässä.",
-          "Jos et saa unta: avaa ikkuna ilmalle, lue kirjaa tai kuuntele rauhallista musiikkia. Älä juokse sängyssä - nouse ja tee jotain."
-        ]
-      },
-      {
-        tag: "harjoitus",
-        patterns: ["liikunta", "gym", "kuntosali", "juoksu", "joga", "kävely", "treeni"],
-        responses: [
-          "Liikunta ei tarvitse olla monimutkaista. Aloita yksinkertaisesti: 30 minuuttia kävelyä päivässä tekee ihmeitä!",
-          "Löydä sinua kiinnostava treeni: juoksu, joga, kuntosali, uinti... Säännöllisyys on tärkeää kuin intensiteetti.",
-          "Fitness-tarina: aloita pienillä, kasva pikkuhiljaa. Paita istuu paremmin, energia nousee, uni paranee. Kolmen viikon jälkeen tuntuu uudelta!"
-        ]
-      },
-      {
-        tag: "ruoka",
-        patterns: ["ruoka", "energia", "syöminen", "ravinto", "ateria", "proteiini", "sokeri"],
-        responses: [
-          "Energian kannalta: välttele suuria sokerin hyppyjä. Aloita päivä proteiinilla ja kuidulla. Säännölliset ateriat auttavat.",
-          "Yksinkertaisia vinkkejä: juoda enemmän vettä (usein väsymys on janontunne), vähentää prosessoituja ruokia, lisätä vihanneksia.",
-          "Muista: ei ole 'pahoja' ruokia, vaan tasapaino. Nautinto on tärkeää! Sunnuntai-suklaahan kuuluu elämään. Kohtuus on avain."
-        ]
-      },
-      {
-        tag: "mielenterveys",
-        patterns: ["mieli", "ahdistus", "paniikki", "masennus", "kauhu", "ahdistava", "pois päästä"],
-        responses: [
-          "Mielenterveys on terveyden tärkein osa. Jos tunnet pitkittynyttä masennusta tai ahdistusta, puhu ammattilaisen kanssa.",
-          "Pienissä tilanteissa auttaa: hengitysharjoitukset (4-7-8 tekniikka), kävelyä, puhua ystävälle. Älä jää yksin murheitten kanssa.",
-          "Muista: tunteet ovat väliaikaisia, vaikka ne tuntuvat pysyviä. Aika parantaa. Jos tarvitset apua, pyynnöstä - se on voimakkuuden merkki."
-        ]
-      },
-      {
-        tag: "uutiset",
-        patterns: ["uutiset", "mitä kuuluu maailmalla", "maailma", "politiikka", "talous"],
-        responses: [
-          "Uutiset voivat olla ahdistavia. Tärkeää: valitse luotettavat lähteet, ei 'uutisointi' josta puhuu kaikki.",
-          "Ehkä parempi strategia: tiedä päänäytelmät, mutta älä hukkaa päivää uutisten scrollaamiseen. 15-30 min päivässä riittää.",
-          "Muista: media korostaa negatiivista, koska se myy. Todellisuus on usein paljon positiivisempi kuin saa nähdä ruudulta."
+          "Virheet ovat normaali osa kehitystä! Lue virheilmoitus tarkasti – se kertoo usein ratkaisun.",
+          "Hyvä tapa korjata koodia: 1) Lue virhe 2) Tulosta muuttujien arvot (console.log) 3) Testaa osa kerrallaan."
         ]
       }
     ];
 
-    const confidenceThreshold = 0.55;
-    const conversationState = {
-      greetingHistory: [],
-      lastIntent: null,
-      lastTopic: null,
-      followUpPromptCount: 0
-    };
+    const confidenceThreshold = 0.25;
     let vocabulary = [];
     let model;
 
-    function getContinuationPrompt() {
-      const prompts = [
-        'Mitä sinä teet?',
-        'Mikä aihe kiinnostaa?',
-        'Haluatko jatkaa tästä?'
-      ];
-      const index = conversationState.followUpPromptCount % prompts.length;
-      conversationState.followUpPromptCount += 1;
-      return prompts[index];
-    }
+    function stem(word) {
+      if (word.length <= 3) return word;
 
-    function setRuntimeState(key, value) {
-      window.chatbotState = window.chatbotState || {};
-      window.chatbotState[key] = value;
+      // Estetään avainverbien ja tiettyjen sanojen rikkoutuminen
+      if (["osaat", "teet", "näet", "haet", "olet"].includes(word)) return word;
+
+      return word
+        .replace(/(ssa|ssä|sta|stä|hyn|hän|iin|lle|lla|llä|lta|ltä|ksi|kse|tta|ttä)$/gi, '')
+        .replace(/(en|in|den|tten|ten|jens|vt|et)$/gi, '');
     }
 
     function tokenize(text) {
-      return text
+      const words = text
         .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zäöå0-9\s]/gi, '')
         .split(/\s+/)
-        .filter(x => x.length > 0);
-    }
+        .filter(x => x.length > 0)
+        .map(word => stem(word));
 
-    function updateConversationState(intentTag) {
-      conversationState.lastIntent = intentTag;
-      if (intentTag && intentTag !== 'tervehdys' && intentTag !== 'pieni_puhe') {
-        conversationState.lastTopic = intentTag;
+      const tokens = [...words];
+
+      // Muodostetaan bigrammit
+      for (let i = 0; i < words.length - 1; i++) {
+        tokens.push(`${words[i]}_${words[i + 1]}`);
       }
-      if (intentTag === 'tervehdys') {
-        conversationState.greetingHistory.push('tervehdys');
-        if (conversationState.greetingHistory.length > 3) conversationState.greetingHistory.shift();
-      }
-    }
 
-    function getFollowUpReply() {
-      const hasRecentGreeting = conversationState.greetingHistory.includes('tervehdys');
-      if (!hasRecentGreeting) return null;
-
-      const followUps = [
-        'Miten voin olla avuksi sinulle?',
-        'Mitä haluaisit tehdä seuraavaksi?',
-        'Aivan, mitä asiaa sinä haluat selvittää?'
-      ];
-
-      return followUps[Math.floor(Math.random() * followUps.length)];
-    }
-
-    function getTopicMemoryReply(text) {
-      if (!conversationState.lastTopic) return null;
-      const normalized = text.toLowerCase();
-      if (!/(kerro lisää|jatka|selitä lisää|lisää tietoa|mikä oli taas|ai niin)/.test(normalized)) return null;
-
-      const topicReplies = {
-        harrastus: [
-          'Jatketaan harrastuksia. Minä tykkään erityisesti keskustelusta ja ideoinnista, mutta sinäkin voi kertoa, mikä sinua pitää virkeänä.',
-          'Harrastuksiin liittyen, usein parasta on löytää sellainen toiminta, joka tekee sinusta toisenlaisen tyytyväiseksi. Mikä sinua kiinnostaa?'
-        ],
-        tekniikka: [
-          'Tekniikasta puheen ollen, tärkeintä on ymmärtää perusajatus selkeästi. Alusta aina pienillä esimerkeillä, niin kokonaisuus selkeytyy.',
-          'Teknologiaa kannattaa lähestyä käytännön esimerkein. Kun ymmärrät idean, koodi ja mallit tulevat paljon helpommin käsiteltäviksi.'
-        ],
-        opiskelu: [
-          'Koulutuksesta puhuttaessa paras tapa on pitää harjoittelu pienenä ja säännöllisenä. Pieni askel kerrallaan kasvattaa luottamusta.',
-          'Opiskelu kannattaa tehdä käytännön kautta: tee yksi pieni projekti, opi virheistä ja rakennat siitä eteenpäin.'
-        ],
-        saa: [
-          'Säästä puhuttaessa hyvä ajattelutapa on, että sen vaihtelut ovat luonnollisia. Jos haluat, voimme jutella vaikka siitä, mikä tekee päivästämme miellyttävän.',
-          'Sää voi vaikuttaa fiilikseen paljon, mutta usein hyvä päivä syntyy pienistä arjen valinnoista ja tekemisistä.'
-        ],
-        viihde: [
-          'Viihteellä on hyvä merkitys silloin, kun se rentouttaa ja virkistää. Elokuvat, musiikki ja pelit voivat herättää uusia ajatuksia.',
-          'Viihde on myös hyvä tapa purkaa energiaa. Jos haluat, voin ehdottaa esimerkiksi kevyen illan vaihtoehdon.'
-        ]
-      };
-
-      const replyList = topicReplies[conversationState.lastTopic] || [
-        'Jatketaan siitä. Aihe on kiinnostava, ja voisin kertoa siitä hieman tarkemmin jos haluat.',
-        'Aivan, siitä on hyvä jatkaa. Kertoaanko tarkemmin vai siirrytäänkö johon toiseen aiheeseen?'
-      ];
-
-      return replyList[Math.floor(Math.random() * replyList.length)];
-    }
-
-    function findBestDirectMatch(text) {
-      const words = tokenize(text);
-      let bestMatch = { intent: null, score: 0 };
-
-      intents.forEach(intent => {
-        let score = 0;
-
-        intent.patterns.forEach(pattern => {
-          const patternWords = tokenize(pattern);
-          const matches = patternWords.filter(word => words.includes(word));
-          score += matches.length;
-        });
-
-        if (score > bestMatch.score) {
-          bestMatch = { intent, score };
-        }
-      });
-
-      return bestMatch;
+      return tokens;
     }
 
     function prepareData() {
       const wordsSet = new Set();
       intents.forEach(intent => {
         intent.patterns.forEach(pattern => {
-          tokenize(pattern).forEach(word => wordsSet.add(word));
+          tokenize(pattern).forEach(token => wordsSet.add(token));
         });
       });
       vocabulary = Array.from(wordsSet);
@@ -589,8 +378,8 @@
 
       intents.forEach((intent, intentIdx) => {
         intent.patterns.forEach(pattern => {
-          const patternWords = tokenize(pattern);
-          const bow = vocabulary.map(word => patternWords.includes(word) ? 1 : 0);
+          const patternTokens = tokenize(pattern);
+          const bow = vocabulary.map(token => patternTokens.includes(token) ? 1 : 0);
           inputs.push(bow);
 
           const label = new Array(intents.length).fill(0);
@@ -606,12 +395,11 @@
     }
 
     async function trainModel() {
-      setRuntimeState('trainingStarted', true);
       try {
         const { xs, ys } = prepareData();
 
         model = tf.sequential();
-        model.add(tf.layers.dense({ units: 24, inputShape: [vocabulary.length], activation: 'relu' }));
+        model.add(tf.layers.dense({ units: 32, inputShape: [vocabulary.length], activation: 'relu' }));
         model.add(tf.layers.dense({ units: intents.length, activation: 'softmax' }));
 
         model.compile({
@@ -620,20 +408,20 @@
           metrics: ['accuracy']
         });
 
-        await model.fit(xs, ys, { epochs: 45, shuffle: true, verbose: 0 });
+        await model.fit(xs, ys, { epochs: 150, shuffle: true, verbose: 0 });
 
         xs.dispose();
         ys.dispose();
 
-        document.getElementById('status').innerText = 'Malli opetettu! Voit aloittaa keskustelun.';
-        setRuntimeState('ready', true);
-        setRuntimeState('trainingStarted', false);
+        document.getElementById('status').innerText = 'Malli valmis! Valitse aihe tai kirjoita viesti.';
+        
+        document.getElementById('userInput').disabled = false;
+        document.getElementById('userInput').placeholder = 'Kirjoita viesti...';
+        document.getElementById('sendBtn').disabled = false;
+
       } catch (error) {
         console.error(error);
-        setRuntimeState('ready', false);
-        setRuntimeState('trainingStarted', false);
-        setRuntimeState('lastError', error && error.message ? error.message : String(error));
-        document.getElementById('status').innerText = 'Virhe mallin koulutuksessa. Tarkista selain- tai verkkoasetukset.';
+        document.getElementById('status').innerText = 'Virhe mallin koulutuksessa.';
       }
     }
 
@@ -677,95 +465,59 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    async function sendMessage() {
+    async function sendMessage(textToSend) {
       const inputEl = document.getElementById('userInput');
-      const text = inputEl.value.trim();
-      if (!text) return;
+      const text = textToSend || inputEl.value.trim();
+      if (!text || !model) return;
 
       appendMessage('Sinä', text, 'user');
-      inputEl.value = '';
+      if (!textToSend) inputEl.value = '';
 
-      if (!model) {
-        appendMessage('Bot', 'Mallia vielä alustetaan, mutta voit kirjoittaa jo nyt. Yritä viestiä hetken kuluttua.', 'bot');
-        return;
-      }
-
-      const topicMemoryReply = getTopicMemoryReply(text);
-      if (topicMemoryReply) {
-        showTypingIndicator();
-        setTimeout(() => {
-          hideTypingIndicator();
-          appendMessage('Bot', topicMemoryReply, 'bot');
-        }, 500);
-        return;
-      }
-
-      const directMatch = findBestDirectMatch(text);
-      const words = tokenize(text);
-      const bow = vocabulary.map(word => words.includes(word) ? 1 : 0);
+      const tokens = tokenize(text);
+      const bow = vocabulary.map(token => tokens.includes(token) ? 1 : 0);
+      
       const inputTensor = tf.tensor2d([bow]);
       const prediction = model.predict(inputTensor);
       const probabilities = await prediction.data();
+      
       const predictedIndex = probabilities.indexOf(Math.max(...probabilities));
       const confidence = probabilities[predictedIndex];
+      
       inputTensor.dispose();
       prediction.dispose();
 
-      let responseIntent = intents[predictedIndex] || intents[0];
-      if (directMatch.intent && directMatch.score > 0 && confidence < confidenceThreshold) {
-        responseIntent = directMatch.intent;
-      }
-
-      const followUpReply = getFollowUpReply();
-      const isGreetingFollowUp = followUpReply && !/hei|moikka|terve|päivää|moro|moi/.test(text.toLowerCase());
-
-      if (confidence < confidenceThreshold && (!directMatch.intent || directMatch.score === 0) && !isGreetingFollowUp) {
-        const fallbackReplies = [
-          'En ihan tarkasti ymmärtänyt. Voit kysyä minulta esimerkiksi "hei", "apua" tai "mitä kuuluu".',
-          'Yritän parhaani, mutta tämä oli vähän epäselvä. Voit kertoa, tarvitsetko apua vai vain keskustelua.',
-          'En aivan saanut kiinni viestiäsi. Kokeile jotain muuta, esimerkiksi "kuka olet" tai "kiitos".'
-        ];
-        showTypingIndicator();
-        setTimeout(() => {
-          hideTypingIndicator();
-          appendMessage('Bot', fallbackReplies[Math.floor(Math.random() * fallbackReplies.length)], 'bot');
-        }, 500);
-        return;
-      }
-
-      let chosenReply = responseIntent.responses[Math.floor(Math.random() * responseIntent.responses.length)];
-      if (isGreetingFollowUp) {
-        chosenReply = followUpReply;
-      }
-
-      const continuationPrompt = getContinuationPrompt();
       showTypingIndicator();
+
       setTimeout(() => {
         hideTypingIndicator();
-        appendMessage('Bot', chosenReply, 'bot');
-
-        if (responseIntent.tag !== 'tervehdys' && responseIntent.tag !== 'näkemiin' && responseIntent.tag !== 'pieni_puhe') {
-          setTimeout(() => {
-            appendMessage('Bot', continuationPrompt, 'bot');
-          }, 220);
+        if (confidence < confidenceThreshold) {
+          appendMessage('Bot', 'En ihan varmasti ymmärtänyt. Kokeile valita aihe yllä olevista napeista!', 'bot');
+        } else {
+          const responseIntent = intents[predictedIndex];
+          const chosenReply = responseIntent.responses[Math.floor(Math.random() * responseIntent.responses.length)];
+          appendMessage('Bot', chosenReply, 'bot');
         }
-      }, 500);
-
-      updateConversationState(responseIntent.tag);
+      }, 400);
     }
 
-    const sendBtn = document.getElementById('sendBtn');
-    const userInput = document.getElementById('userInput');
-
-    sendBtn.addEventListener('click', sendMessage);
-    sendBtn.onclick = sendMessage;
-    userInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        sendMessage();
+    function sendQuickText(text) {
+      const inputEl = document.getElementById('userInput');
+      if (!inputEl.disabled) {
+        sendMessage(text);
       }
-    });
+    }
 
-    trainModel();
+    window.addEventListener('DOMContentLoaded', () => {
+      const sendBtn = document.getElementById('sendBtn');
+      const userInput = document.getElementById('userInput');
+
+      sendBtn.addEventListener('click', () => sendMessage());
+      userInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') sendMessage();
+      });
+
+      trainModel();
+    });
   </script>
 </body>
 </html>
